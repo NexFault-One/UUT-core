@@ -1,51 +1,89 @@
 #include <Arduino.h>
+#include "../include/proto_codec/proto_communication.h"
+#include "../include/proto_codec/proto_communication.c"
+#include "../protobuf_msgs/proto_msgs/uart_data.pb.c"
 
-// Pins used by the other code: keep Serial2 on same pins
-#define RX_PIN 18
+
 #define TX_PIN 17
-#define USB_BAUD 9600
-#define UART2_BAUD 115200
+#define RX_PIN 18
+#define HOST_BAUD 9600
+#define DEVICE_BAUD 115200
+
+test_msgs_Error_Message errors;
 
 void setup() {
-  // USB debug console
-  Serial.begin(USB_BAUD);
-  while (!Serial) { ; }
-  delay(50);
-
+  // host connection debug console
+  Serial.begin(HOST_BAUD);
   // UART used to talk with DSI
-  // Serial2: RX=18, TX=17 (same mapping used in your DSI firmware)
-  Serial2.begin(UART2_BAUD, SERIAL_8N1, RX_PIN, TX_PIN);
-  delay(50);
-
-  Serial.println("UUT: Silent echo firmware started. Ready.");
+  Serial2.begin(DEVICE_BAUD, SERIAL_8N1, RX_PIN, TX_PIN);
+  delay(500);
+  
+  Serial.println("UUT: Ready.");
 }
 
-void loop() {
-  // If there's data from the DSI (on Serial2), forward it to the USB console.
-  // If nothing's incoming, do nothing (no spam).
-  if (Serial2.available()) {
-    // Read available bytes into a small buffer and print hex + ASCII
-    const size_t BUF_SZ = 128;
-    uint8_t buf[BUF_SZ];
-    size_t n = 0;
-    while (Serial2.available() && n < BUF_SZ) {
-      int b = Serial2.read();
-      if (b < 0) break;
-      buf[n++] = (uint8_t)b;
-    }
 
-    // Print a compact hex dump on USB console
-    Serial.print("RX(");
-    Serial.print(n);
-    Serial.print("): ");
-    for (size_t i = 0; i < n; ++i) {
-      if (buf[i] < 0x10) Serial.print('0');
-      Serial.print(buf[i], HEX);
-      if (i + 1 < n) Serial.print(' ');
+// NIZAR: TODO need to rewrite to make it compatible with the library (especially hex data)
+//void loop() {
+//  // If there's data from the DSI (on Serial2), forward it to the USB console.
+//  // If nothing's incoming, do nothing (no spam).
+//  if (Serial2.available()) {
+//    char payload_str[PROTOBUF_BUFFER_SIZE];
+//
+//    errors.payload.arg = payload_str;
+//    errors.payload.funcs.decode = &protobuf_decode_string;
+//
+//    if(protobuf_receive(&Serial2, &errors, test_msgs_Error_Message_fields))
+//    {
+//      Serial.print("string (corrupted): ");
+//      Serial.println(payload_str);
+//    } else {
+//      Serial.println("decoding failed!");
+//    }
+//  }
+//
+//  // Small yield to avoid busy-looping
+//  delay(1000);
+//}
+
+// use for now -- temporary
+void loop()
+{
+  if(Serial2.available())
+  {
+    uint8_t buffer[PROTOBUF_BUFFER_SIZE];
+    size_t bytes_read = 0;
+
+    while(Serial2.available() && bytes_read < PROTOBUF_BUFFER_SIZE)
+    {
+      buffer[bytes_read++] = Serial2.read();
+    }
+    Serial.print("RX bytes (");
+    Serial.print(bytes_read);
+    Serial.println("):");
+    for (size_t i = 0; i < bytes_read; ++i) {
+      if (buffer[i] < 0x10) Serial.print('0');
+      Serial.print(buffer[i], HEX);
+      Serial.print(' ');
     }
     Serial.println();
+    if(bytes_read > 0)
+    {
+      char payload_str[PROTOBUF_BUFFER_SIZE];
+      errors = test_msgs_Error_Message_init_zero;
+      errors.payload.arg = payload_str;
+      errors.payload.funcs.decode = &protobuf_decode_string;
+
+      pb_istream_t stream = pb_istream_from_buffer(buffer, bytes_read);
+      if(pb_decode(&stream, test_msgs_Error_Message_fields, &errors))
+      {
+        Serial.print("Decoded String: ");
+        Serial.println(payload_str);
+      } else {
+        Serial.print("Decoding failed! ");
+        Serial.println(PB_GET_ERROR(&stream));
+      }
+    }
   }
 
-  // Small yield to avoid busy-looping
-  delay(2);
+  delay(50);
 }
