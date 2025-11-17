@@ -9,7 +9,6 @@
 #define HOST_BAUD 9600
 #define DEVICE_BAUD 115200
 
-test_msgs_Error_Message errors;
 
 void setup() {
   // host connection debug console
@@ -66,24 +65,24 @@ void loop()
       Serial.print(' ');
     }
     Serial.println();
-    if(bytes_read > 0)
+    bool printable = true;
+    for (size_t i = 0; i<bytes_read;++i)
     {
-      char payload_str[PROTOBUF_BUFFER_SIZE];
-      errors = test_msgs_Error_Message_init_zero;
-      errors.payload.arg = payload_str;
-      errors.payload.funcs.decode = &protobuf_decode_string;
+      if(buffer[i] < 0x20 || buffer[i] > 0x7E) {printable = false; break;}
 
-      pb_istream_t stream = pb_istream_from_buffer(buffer, bytes_read);
-      if(pb_decode(&stream, test_msgs_Error_Message_fields, &errors))
+    }
+    if(printable)
+    {
+      Serial.print("ASCII message: ");
+      for(size_t i = 0; i < bytes_read ; ++i)
       {
-        Serial.print("Decoded String: ");
-        Serial.println(payload_str);
-      } else {
-        Serial.print("Decoding failed! ");
-        Serial.println(PB_GET_ERROR(&stream));
+        Serial.write(buffer[i]);
       }
+      Serial.println();
+    }
+    else {
+      Serial.println("non printable data received...");
     }
   }
-
   delay(50);
 }
