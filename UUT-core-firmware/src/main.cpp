@@ -47,42 +47,35 @@ void setup() {
 // use for now -- temporary
 void loop()
 {
-  if(Serial2.available())
-  {
-    uint8_t buffer[PROTOBUF_BUFFER_SIZE];
-    size_t bytes_read = 0;
+    if (Serial2.available() > 0)
+    {
+        uint8_t buffer[PROTOBUF_BUFFER_SIZE];
+        size_t bytes_read = 0;
+        unsigned long last_byte_time = millis();
 
-    while(Serial2.available() && bytes_read < PROTOBUF_BUFFER_SIZE)
-    {
-      buffer[bytes_read++] = Serial2.read();
-    }
-    Serial.print("RX bytes (");
-    Serial.print(bytes_read);
-    Serial.println("):");
-    for (size_t i = 0; i < bytes_read; ++i) {
-      if (buffer[i] < 0x10) Serial.print('0');
-      Serial.print(buffer[i], HEX);
-      Serial.print(' ');
-    }
-    Serial.println();
-    bool printable = true;
-    for (size_t i = 0; i<bytes_read;++i)
-    {
-      if(buffer[i] < 0x20 || buffer[i] > 0x7E) {printable = false; break;}
+        // keep reading until no new bytes arrive for 50 ms or buffer full
+        while ((millis() - last_byte_time) < 50 && bytes_read < PROTOBUF_BUFFER_SIZE)
+        {
+            if (Serial2.available())
+            {
+                buffer[bytes_read++] = Serial2.read();
+                last_byte_time = millis();  // reset timer after each byte
+            }
+        }
 
+        if (bytes_read == 0)
+            return;
+
+        Serial.printf("RX bytes (%u):\n", bytes_read);
+        for (size_t i = 0; i < bytes_read; ++i)
+            Serial.printf("%02X ", buffer[i]);
+        Serial.println();
+
+        Serial.print("ASCII message: ");
+        for (size_t i = 0; i < bytes_read; ++i)
+            Serial.write(buffer[i]);
+        Serial.println();
     }
-    if(printable)
-    {
-      Serial.print("ASCII message: ");
-      for(size_t i = 0; i < bytes_read ; ++i)
-      {
-        Serial.write(buffer[i]);
-      }
-      Serial.println();
-    }
-    else {
-      Serial.println("non printable data received...");
-    }
-  }
-  delay(50);
+
+    delay(10);
 }
