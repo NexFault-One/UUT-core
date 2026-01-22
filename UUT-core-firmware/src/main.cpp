@@ -4,11 +4,43 @@
 #include "../protobuf_msgs/proto_msgs/uart_data.pb.c"
 
 
-#define TX_PIN 17
-#define RX_PIN 18
+// nizar esp pins
+#define TX_PIN_NZ 17
+#define RX_PIN_NZ 18
+
+// prototype pins, for real product. TX = 6 and RX = 5
+#define TX_PIN 6
+#define RX_PIN 5
+
+// bauds
 #define HOST_BAUD 9600
 #define DEVICE_BAUD 115200
 
+// to identify the esp32 for com port
+#define DEVICE_ID "UUT"
+
+void performHandshake()
+{
+    String expectedAck = "<ACK:" DEVICE_ID ">";
+    
+    while(true)
+  {
+    Serial.printf("<HELLO_UI:%s>\n", DEVICE_ID);
+    delay(1000);
+
+    if(Serial.available())
+    {
+      String msg = Serial.readStringUntil('\n');
+      msg.trim();
+      if(msg == expectedAck)
+      {
+        Serial.printf("[HANDSHAKE OK] Device %s recognized by dashboard.\n", DEVICE_ID);
+        break;
+      }
+    }
+  }
+
+}
 
 void setup() {
   // host connection debug console
@@ -16,8 +48,10 @@ void setup() {
   // UART used to talk with DSI
   Serial2.begin(DEVICE_BAUD, SERIAL_8N1, RX_PIN, TX_PIN);
   delay(500);
+
+  performHandshake();
   
-  Serial.println("UUT: Ready.");
+  Serial.println("[UUT] HANDSHAKE COMPLETED. UUT: Ready.");
 }
 
 
