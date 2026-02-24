@@ -12,8 +12,8 @@
 #define RX_PIN 5
 
 // modbus pins
-#define MODBUS_RX 15
-#define MODBUS_TX 7
+#define MODBUS_RX 15 // RO
+#define MODBUS_TX 7 // DI
 #define MODBUS_DE 42
 
 // bauds
@@ -76,7 +76,11 @@ void setup() {
 
   mb.slave(SLAVE_ID);
 
-  mb.addHreg(REG_GENERIC, 0);
+  //mb.addHreg(REG_GENERIC, 0);
+  for (int i = 0; i<250;i++)
+  {
+    mb.addHreg(i);
+  }
   mb.onSetHreg(REG_GENERIC, cbGeneric);
 
   Serial.printf("[UUT] Listening on Serial1 (Slave ID: %d)...\n", SLAVE_ID);
@@ -117,7 +121,7 @@ void loop()
 
   yield();
   
-  if (Serial1.available() > 0)
+  if (Serial2.available() > 0)
   {
       uint8_t buffer[PROTOBUF_BUFFER_SIZE];
       size_t bytes_read = 0;
